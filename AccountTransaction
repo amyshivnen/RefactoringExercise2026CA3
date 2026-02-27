@@ -1,0 +1,70 @@
+import java.time.LocalDateTime;
+
+public class AccountTransaction {
+
+    //String to LocalDateTime
+    private LocalDateTime date;
+
+    //String to TransactionType
+    private TransactionType type;
+
+    //Amount
+    private double amount;
+
+    // Blank constructor
+    public AccountTransaction() {
+        this(LocalDateTime.now(), TransactionType.LODGEMENT, 0.0);
+    }
+
+    // Constructor
+    public AccountTransaction(LocalDateTime date, TransactionType type, double amount) {
+
+        this.date = (date == null) ? LocalDateTime.now() : date;
+        this.type = (type == null) ? TransactionType.LODGEMENT : type;
+
+        // Amount validation
+        if (amount < 0) {
+            throw new IllegalArgumentException("Amount cannot be negative.");
+        }
+
+        this.amount = amount;
+    }
+
+    // Accessor methods
+
+    public LocalDateTime getDate() {
+        return this.date;
+    }
+
+    public TransactionType getType() {
+        return this.type;
+    }
+
+    public double getAmount() {
+        return this.amount;
+    }
+
+    // Mutator methods
+
+    public void setDate(LocalDateTime date) {
+        this.date = (date == null) ? LocalDateTime.now() : date;
+    }
+
+    public void setType(TransactionType type) {
+        this.type = (type == null) ? TransactionType.LODGEMENT : type;
+    }
+
+    public void setAmount(double amount) {
+        if (amount < 0) {
+            throw new IllegalArgumentException("Amount cannot be negative.");
+        }
+        this.amount = amount;
+    }
+
+    @Override
+    public String toString() {
+        return "\nDate = " + this.date +
+               "\nType = " + this.type +
+               "\nAmount = " + this.amount + "\n";
+    }
+}
