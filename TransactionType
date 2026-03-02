@@ -1,4 +1,7 @@
+package RefactoringExercise2026;
+
 public enum TransactionType {
-    LODGEMENT,
-    WITHDRAW
+    DEPOSIT,
+    WITHDRAW,
+    INTEREST
 }
