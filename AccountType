@@ -1,0 +1,24 @@
+package RefactoringExercise2026;
+
+public enum AccountType {
+    CURRENT("Current"),
+    DEPOSIT("Deposit");
+
+    private final String display;
+
+    AccountType(String display) {
+        this.display = display;
+    }
+
+    public String displayName() {
+        return display;
+    }
+
+    public static AccountType fromDisplay(String s) {
+        if (s == null) throw new IllegalArgumentException("AccountType is required.");
+        for (AccountType t : values()) {
+            if (t.display.equalsIgnoreCase(s.trim())) return t;
+        }
+        throw new IllegalArgumentException("Unknown AccountType: " + s);
+    }
+}
