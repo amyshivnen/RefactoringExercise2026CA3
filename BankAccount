@@ -1,0 +1,93 @@
+package RefactoringExercise2026;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+
+public abstract class BankAccount {
+
+    private final int accountId;                 // id
+    private final String accountNumber;          // 8 digits unique
+    private String surname;                      // length 20 
+    private String firstName;                    // length 20 
+    private final AccountType accountType;       // Current / Deposit
+
+    private double balance;                      // starts 0.0
+    private final List<AccountTransaction> transactions = new ArrayList<>();
+
+    protected BankAccount(int accountId, String accountNumber,
+                          String surname, String firstName,
+                          AccountType accountType, double balance) {
+
+        if (accountId <= 0) throw new IllegalArgumentException("AccountID must be > 0.");
+        this.accountId = accountId;
+
+        validateAccountNumber(accountNumber);
+        this.accountNumber = accountNumber;
+
+        this.accountType = Objects.requireNonNull(accountType, "AccountType is required.");
+
+        setSurname(surname);
+        setFirstName(firstName);
+
+        if (balance < 0) throw new IllegalArgumentException("Balance cannot be negative at creation.");
+        this.balance = balance;
+    }
+
+    public int getAccountId() { return accountId; }
+    public String getAccountNumber() { return accountNumber; }
+    public String getSurname() { return surname; }
+    public String getFirstName() { return firstName; }
+    public AccountType getAccountType() { return accountType; }
+    public double getBalance() { return balance; }
+
+    public void setSurname(String surname) {
+        this.surname = validateFixedLenText("Surname", surname, 20);
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = validateFixedLenText("FirstName", firstName, 20);
+    }
+
+    public List<AccountTransaction> getTransactions() {
+        return Collections.unmodifiableList(transactions);
+    }
+
+    public void deposit(double amount) {
+        if (amount <= 0) throw new IllegalArgumentException("Deposit amount must be > 0.");
+        balance += amount;
+        transactions.add(new AccountTransaction(java.time.LocalDateTime.now(), TransactionType.DEPOSIT, amount));
+    }
+
+    public void withdraw(double amount) {
+        if (amount <= 0) throw new IllegalArgumentException("Withdraw amount must be > 0.");
+        // subclass decides rule (overdraft/balance rules)
+        validateWithdrawal(amount);
+        balance -= amount;
+        transactions.add(new AccountTransaction(java.time.LocalDateTime.now(), TransactionType.WITHDRAW, amount));
+    }
+
+    protected abstract void validateWithdrawal(double amount);
+
+    protected void addInterestTransaction(double interestAmount) {
+        if (interestAmount <= 0) return;
+        balance += interestAmount;
+        transactions.add(new AccountTransaction(java.time.LocalDateTime.now(), TransactionType.INTEREST, interestAmount));
+    }
+
+    public static void validateAccountNumber(String accountNumber) {
+        if (accountNumber == null || !accountNumber.matches("\\d{8}")) {
+            throw new IllegalArgumentException("AccountNumber must be exactly 8 digits.");
+        }
+    }
+
+    private static String validateFixedLenText(String field, String value, int maxLen) {
+        if (value == null) value = "";
+        value = value.trim();
+        if (value.length() > maxLen) {
+            throw new IllegalArgumentException(field + " must be max " + maxLen + " characters.");
+        }
+        return value;
+    }
+}
