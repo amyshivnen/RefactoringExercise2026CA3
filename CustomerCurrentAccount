@@ -1,0 +1,26 @@
+package RefactoringExercise2026;
+
+public class CustomerCurrentAccount extends BankAccount {
+
+    private double overdraft; // starts 0.0
+
+    public CustomerCurrentAccount(int accountId, String accountNumber, String surname, String firstName, double balance, double overdraft) {
+        super(accountId, accountNumber, surname, firstName, AccountType.CURRENT, balance);
+        setOverdraft(overdraft);
+    }
+
+    public double getOverdraft() { return overdraft; }
+
+    public void setOverdraft(double overdraft) {
+        if (overdraft < 0) throw new IllegalArgumentException("Overdraft cannot be negative.");
+        this.overdraft = overdraft;
+    }
+
+    @Override
+    protected void validateWithdrawal(double amount) {
+        double newBal = getBalance() - amount;
+        if (newBal < -overdraft) {
+            throw new IllegalArgumentException("Withdrawal would exceed overdraft limit.");
+        }
+    }
+}
