@@ -1,0 +1,31 @@
+package RefactoringExercise2026;
+
+public class CustomerDepositAccount extends BankAccount {
+
+    private double interestRate; // percentage, starts 0.0
+
+    public CustomerDepositAccount(int accountId, String accountNumber, String surname, String firstName, double balance, double interestRate) {
+        super(accountId, accountNumber, surname, firstName, AccountType.DEPOSIT, balance);
+        setInterestRate(interestRate);
+    }
+
+    public double getInterestRate() { return interestRate; }
+
+    public void setInterestRate(double interestRate) {
+        if (interestRate < 0) throw new IllegalArgumentException("Interest rate cannot be negative.");
+        this.interestRate = interestRate;
+    }
+
+    public void applyInterestOnce() {
+        if (interestRate <= 0) return;
+        double interestAmount = getBalance() * (interestRate / 100.0);
+        addInterestTransaction(interestAmount);
+    }
+
+    @Override
+    protected void validateWithdrawal(double amount) {
+        if (amount > getBalance()) {
+            throw new IllegalArgumentException("Withdrawal cannot exceed balance for Deposit Account.");
+        }
+    }
+}
