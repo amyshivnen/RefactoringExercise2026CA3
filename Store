@@ -1,0 +1,145 @@
+package RefactoringExercise2026;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Store {
+
+    public static final int MAX_RECORDS = 25;
+
+    private static final int RECORD_SIZE = 98;
+
+    public void save(String filePath, List<BankAccount> accounts) throws IOException {
+        try (RandomAccessFile raf = new RandomAccessFile(filePath, "rw")) {
+            raf.setLength((long) MAX_RECORDS * RECORD_SIZE);
+
+            // clear all slots
+            for (int i = 0; i < MAX_RECORDS; i++) {
+                writeEmpty(raf, i);
+            }
+
+            for (BankAccount a : accounts) {
+                put(raf, a);
+            }
+        }
+    }
+
+    public List<BankAccount> load(String filePath) throws IOException {
+        List<BankAccount> accounts = new ArrayList<>();
+        try (RandomAccessFile raf = new RandomAccessFile(filePath, "r")) {
+
+            for (int slot = 0; slot < MAX_RECORDS; slot++) {
+                Record r = readRecord(raf, slot);
+                if (!r.active) continue;
+
+                BankAccount a;
+                if (r.type.equals("Current")) {
+                    a = new CustomerCurrentAccount(r.accountId, r.accountNumber, r.surname, r.firstName, r.balance, r.overdraft);
+                } else {
+                    a = new CustomerDepositAccount(r.accountId, r.accountNumber, r.surname, r.firstName, r.balance, r.interestRate);
+                }
+                accounts.add(a);
+            }
+        }
+        return accounts;
+    }
+
+    private void put(RandomAccessFile raf, BankAccount a) throws IOException {
+        int startSlot = hashSlot(a.getAccountNumber());
+        int slot = startSlot;
+
+        for (int i = 0; i < MAX_RECORDS; i++) {
+            Record existing = readRecord(raf, slot);
+            if (!existing.active || existing.accountNumber.equals(a.getAccountNumber())) {
+                writeRecord(raf, slot, a);
+                return;
+            }
+            slot = (slot + 1) % MAX_RECORDS; 
+        }
+
+        throw new IOException("File is full (25 records).");
+    }
+
+    private int hashSlot(String accountNumber) {
+        int last3 = Integer.parseInt(accountNumber.substring(5));
+        return last3 % MAX_RECORDS;
+    }
+
+    private void writeEmpty(RandomAccessFile raf, int slot) throws IOException {
+        raf.seek((long) slot * RECORD_SIZE);
+        raf.write(fixed("", RECORD_SIZE).getBytes(StandardCharsets.US_ASCII));
+    }
+
+    private void writeRecord(RandomAccessFile raf, int slot, BankAccount a) throws IOException {
+        String type = a.getAccountType().displayName();
+        double overdraft = 0.0;
+        double interest = 0.0;
+
+        if (a instanceof CustomerCurrentAccount) overdraft = ((CustomerCurrentAccount) a).getOverdraft();
+        if (a instanceof CustomerDepositAccount) interest = ((CustomerDepositAccount) a).getInterestRate();
+
+        String rec =
+                fixed(String.valueOf(a.getAccountId()), 6) +
+                fixed(a.getAccountNumber(), 8) +
+                fixed(a.getSurname(), 20) +
+                fixed(a.getFirstName(), 20) +
+                fixed(type, 7) +
+                fixed(String.format("%12.2f", a.getBalance()), 12) +
+                fixed(String.format("%12.2f", overdraft), 12) +
+                fixed(String.format("%12.2f", interest), 12) +
+                fixed("1", 1);
+
+        raf.seek((long) slot * RECORD_SIZE);
+        raf.write(rec.getBytes(StandardCharsets.US_ASCII));
+    }
+
+    private Record readRecord(RandomAccessFile raf, int slot) throws IOException {
+        raf.seek((long) slot * RECORD_SIZE);
+        byte[] buf = new byte[RECORD_SIZE];
+        int read = raf.read(buf);
+        if (read != RECORD_SIZE) return new Record(); // empty
+
+        String s = new String(buf, StandardCharsets.US_ASCII);
+
+        Record r = new Record();
+        r.accountId = parseIntSafe(s.substring(0, 6).trim());
+        r.accountNumber = s.substring(6, 14).trim();
+        r.surname = s.substring(14, 34).trim();
+        r.firstName = s.substring(34, 54).trim();
+        r.type = s.substring(54, 61).trim();
+        r.balance = parseDoubleSafe(s.substring(61, 73).trim());
+        r.overdraft = parseDoubleSafe(s.substring(73, 85).trim());
+        r.interestRate = parseDoubleSafe(s.substring(85, 97).trim());
+        r.active = "1".equals(s.substring(97, 98));
+        return r;
+    }
+
+    private String fixed(String v, int len) {
+        if (v == null) v = "";
+        if (v.length() > len) v = v.substring(0, len);
+        return String.format("%-" + len + "s", v);
+    }
+
+    private int parseIntSafe(String s) {
+        try { return Integer.parseInt(s); } catch (Exception e) { return 0; }
+    }
+
+    private double parseDoubleSafe(String s) {
+        try { return Double.parseDouble(s); } catch (Exception e) { return 0.0; }
+    }
+
+    private static class Record {
+        int accountId;
+        String accountNumber = "";
+        String surname = "";
+        String firstName = "";
+        String type = "";
+        double balance;
+        double overdraft;
+        double interestRate;
+        boolean active;
+    }
+}
