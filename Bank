@@ -1,0 +1,100 @@
+package RefactoringExercise2026;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+public class Bank {
+
+    private final List<BankAccount> accounts = new ArrayList<>();
+    private int nextAccountId = 1;
+
+    public List<BankAccount> getAll() {
+        return new ArrayList<>(accounts);
+    }
+
+    public int size() { return accounts.size(); }
+
+    public BankAccount create(AccountType type, String accountNumber, String surname, String firstName) {
+        BankAccount.validateAccountNumber(accountNumber);
+        ensureAccountNumberUnique(accountNumber);
+
+        int id = nextAccountId++;
+
+        BankAccount acc;
+        if (type == AccountType.CURRENT) {
+            acc = new CustomerCurrentAccount(id, accountNumber, surname, firstName, 0.0, 0.0);
+        } else {
+            acc = new CustomerDepositAccount(id, accountNumber, surname, firstName, 0.0, 0.0);
+        }
+
+        accounts.add(acc);
+        return acc;
+    }
+
+    public void deleteByAccountNumber(String accountNumber) {
+        BankAccount a = findByAccountNumber(accountNumber);
+        if (a == null) throw new IllegalArgumentException("Account not found.");
+        accounts.remove(a);
+    }
+
+    public BankAccount findByAccountNumber(String accountNumber) {
+        if (accountNumber == null) return null;
+        for (BankAccount a : accounts) {
+            if (a.getAccountNumber().equals(accountNumber)) return a;
+        }
+        return null;
+    }
+
+    public List<BankAccount> findBySurname(String surname) {
+        String s = (surname == null) ? "" : surname.trim().toLowerCase();
+        List<BankAccount> results = new ArrayList<>();
+        for (BankAccount a : accounts) {
+            if (a.getSurname().toLowerCase().startsWith(s)) results.add(a);
+        }
+        results.sort(Comparator.comparing(BankAccount::getSurname).thenComparing(BankAccount::getFirstName));
+        return results;
+    }
+
+    private void ensureAccountNumberUnique(String accountNumber) {
+        if (findByAccountNumber(accountNumber) != null) {
+            throw new IllegalArgumentException("AccountNumber already exists.");
+        }
+    }
+
+    // First/Last/Next/Previous
+    public BankAccount first() {
+        if (accounts.isEmpty()) return null;
+        return accounts.get(0);
+    }
+
+    public BankAccount last() {
+        if (accounts.isEmpty()) return null;
+        return accounts.get(accounts.size() - 1);
+    }
+
+    public BankAccount next(int index) {
+        if (accounts.isEmpty()) return null;
+        int i = Math.min(index + 1, accounts.size() - 1);
+        return accounts.get(i);
+    }
+
+    public BankAccount previous(int index) {
+        if (accounts.isEmpty()) return null;
+        int i = Math.max(index - 1, 0);
+        return accounts.get(i);
+    }
+
+    public int indexOf(BankAccount a) {
+        return accounts.indexOf(a);
+    }
+
+    // Used after loading from file
+    public void replaceAll(List<BankAccount> loaded) {
+        accounts.clear();
+        accounts.addAll(loaded);
+
+        int maxId = 0;
+        for (BankAccount a : accounts) maxId = Math.max(maxId, a.getAccountId());
+        nextAccountId = maxId + 1;
+    }
