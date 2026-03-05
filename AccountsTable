@@ -1,0 +1,50 @@
+package RefactoringExercise2026;
+
+import javax.swing.table.AbstractTableModel;
+import java.util.List;
+
+public class AccountsTable extends AbstractTableModel {
+
+    private final String[] cols = {
+            "AccountID", "AccountNumber", "Surname", "FirstName", "AccountType", "Balance", "Overdraft", "InterestRate"
+    };
+
+    private List<BankAccount> data;
+
+    public AccountsTable(List<BankAccount> data) {
+        this.data = data;
+    }
+
+    public void setData(List<BankAccount> data) {
+        this.data = data;
+        fireTableDataChanged();
+    }
+
+    @Override public int getRowCount() { return data == null ? 0 : data.size(); }
+    @Override public int getColumnCount() { return cols.length; }
+    @Override public String getColumnName(int col) { return cols[col]; }
+
+    @Override
+    public Object getValueAt(int rowIndex, int columnIndex) {
+        BankAccount a = data.get(rowIndex);
+        double overdraft = (a instanceof CustomerCurrentAccount) ? ((CustomerCurrentAccount) a).getOverdraft() : 0.0;
+        double interest = (a instanceof CustomerDepositAccount) ? ((CustomerDepositAccount) a).getInterestRate() : 0.0;
+
+        return switch (columnIndex) {
+            case 0 -> a.getAccountId();
+            case 1 -> a.getAccountNumber();
+            case 2 -> a.getSurname();
+            case 3 -> a.getFirstName();
+            case 4 -> a.getAccountType().displayName();
+            case 5 -> a.getBalance();
+            case 6 -> overdraft;
+            case 7 -> interest;
+            default -> "";
+        };
+    }
+
+    @Override
+    public boolean isCellEditable(int rowIndex, int columnIndex) {
+        return false;
+    }
+}
