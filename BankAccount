@@ -62,7 +62,6 @@ public abstract class BankAccount {
 
     public void withdraw(double amount) {
         if (amount <= 0) throw new IllegalArgumentException("Withdraw amount must be > 0.");
-        // subclass decides rule (overdraft/balance rules)
         validateWithdrawal(amount);
         balance -= amount;
         transactions.add(new AccountTransaction(java.time.LocalDateTime.now(), TransactionType.WITHDRAW, amount));
