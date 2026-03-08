@@ -1,0 +1,381 @@
+package RefactoringExercise2026;
+
+import javax.swing.*;
+import javax.swing.table.TableRowSorter;
+import java.awt.*;
+import java.io.File;
+import java.lang.classfile.ClassModel;
+import java.nio.file.FileStore;
+import java.util.List;
+
+public class Menu extends JFrame {
+
+    private final Bank model = new Bank();
+    private final Store store = new Store();
+
+    private File currentFile = null;
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new Menu().setVisible(true));
+    }
+
+    public Menu() {
+        setTitle("Bank Application (CA3)");
+        setSize(900, 450);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                exitApp();
+            }
+        });
+
+        setJMenuBar(buildMenuBar());
+
+        JLabel info = new JLabel("Use the menu to Navigate / Records / Transactions / File", SwingConstants.CENTER);
+        add(info, BorderLayout.CENTER);
+    }
+
+    private JMenuBar buildMenuBar() {
+        JMenuBar bar = new JMenuBar();
+
+        // Navigate
+        JMenu nav = new JMenu("Navigate");
+        JMenuItem findByAcc = new JMenuItem("Find By Account Number");
+        JMenuItem findBySurname = new JMenuItem("Find By Surname");
+        JMenuItem listAll = new JMenuItem("List All (JTable)");
+        nav.add(findByAcc);
+        nav.add(findBySurname);
+        nav.addSeparator();
+        nav.add(listAll);
+
+        findByAcc.addActionListener(e -> doFindByAccountNumber());
+        findBySurname.addActionListener(e -> doFindBySurname());
+        listAll.addActionListener(e -> showListAllTable());
+
+        // Records
+        JMenu rec = new JMenu("Records");
+        JMenuItem create = new JMenuItem("Create");
+        JMenuItem modify = new JMenuItem("Modify (by Account Number)");
+        JMenuItem delete = new JMenuItem("Delete (by Account Number)");
+        JMenuItem setOverdraft = new JMenuItem("Set Overdraft (Current)");
+        JMenuItem setInterest = new JMenuItem("Set Interest Rate (Deposit)");
+        rec.add(create);
+        rec.add(modify);
+        rec.add(delete);
+        rec.addSeparator();
+        rec.add(setOverdraft);
+        rec.add(setInterest);
+
+        create.addActionListener(e -> doCreate());
+        modify.addActionListener(e -> doModify());
+        delete.addActionListener(e -> doDelete());
+        setOverdraft.addActionListener(e -> doSetOverdraft());
+        setInterest.addActionListener(e -> doSetInterestRate());
+
+        // Transactions
+        JMenu trx = new JMenu("Transactions");
+        JMenuItem deposit = new JMenuItem("Deposit");
+        JMenuItem withdraw = new JMenuItem("Withdraw");
+        JMenuItem calcInterest = new JMenuItem("Calculate Interest (all deposit accounts)");
+        trx.add(deposit);
+        trx.add(withdraw);
+        trx.addSeparator();
+        trx.add(calcInterest);
+
+        deposit.addActionListener(e -> doDeposit());
+        withdraw.addActionListener(e -> doWithdraw());
+        calcInterest.addActionListener(e -> doCalculateInterest());
+
+        // File
+        JMenu file = new JMenu("File");
+        JMenuItem open = new JMenuItem("Open");
+        JMenuItem save = new JMenuItem("Save");
+        JMenuItem saveAs = new JMenuItem("Save As");
+        file.add(open);
+        file.add(save);
+        file.add(saveAs);
+
+        open.addActionListener(e -> doOpen());
+        save.addActionListener(e -> doSave(false));
+        saveAs.addActionListener(e -> doSave(true));
+
+        // Exit
+        JMenuItem exit = new JMenuItem("Exit Application");
+        exit.addActionListener(e -> exitApp());
+
+        bar.add(nav);
+        bar.add(rec);
+        bar.add(trx);
+        bar.add(file);
+        bar.add(exit);
+
+        return bar;
+    }
+
+    private void doCreate() {
+        String[] choices = {AccountType.CURRENT.displayName(), AccountType.DEPOSIT.displayName()};
+        String typeStr = (String) JOptionPane.showInputDialog(this, "Account Type:",
+                "Create Record", JOptionPane.QUESTION_MESSAGE, null, choices, choices[0]);
+        if (typeStr == null) return;
+
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        String surname = JOptionPane.showInputDialog(this, "Surname (max 20):");
+        if (surname == null) return;
+
+        String first = JOptionPane.showInputDialog(this, "FirstName (max 20):");
+        if (first == null) return;
+
+        try {
+            BankAccount a = model.create(AccountType.fromDisplay(typeStr), accNo.trim(), surname, first);
+            JOptionPane.showMessageDialog(this, "Created AccountID=" + a.getAccountId());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void doModify() {
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        BankAccount a = model.findByAccountNumber(accNo.trim());
+        if (a == null) {
+            JOptionPane.showMessageDialog(this, "Account not found.");
+            return;
+        }
+
+        String newSurname = JOptionPane.showInputDialog(this, "New Surname (max 20):", a.getSurname());
+        if (newSurname == null) return;
+
+        String newFirst = JOptionPane.showInputDialog(this, "New FirstName (max 20):", a.getFirstName());
+        if (newFirst == null) return;
+
+        try {
+            a.setSurname(newSurname);
+            a.setFirstName(newFirst);
+            JOptionPane.showMessageDialog(this, "Record updated.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Delete
+    private void doDelete() {
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        try {
+            model.deleteByAccountNumber(accNo.trim());
+            JOptionPane.showMessageDialog(this, "Deleted.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Overdraft
+    private void doSetOverdraft() {
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        BankAccount a = model.findByAccountNumber(accNo.trim());
+        if (!(a instanceof CustomerCurrentAccount)) {
+            JOptionPane.showMessageDialog(this, "Must be a Current account.");
+            return;
+        }
+
+        String s = JOptionPane.showInputDialog(this, "Overdraft (>=0):", ((CustomerCurrentAccount) a).getOverdraft());
+        if (s == null) return;
+
+        try {
+            double od = Double.parseDouble(s);
+            ((CustomerCurrentAccount) a).setOverdraft(od);
+            JOptionPane.showMessageDialog(this, "Overdraft updated.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Interest rate
+    private void doSetInterestRate() {
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        BankAccount a = model.findByAccountNumber(accNo.trim());
+        if (!(a instanceof CustomerDepositAccount)) {
+            JOptionPane.showMessageDialog(this, "Must be a Deposit account.");
+            return;
+        }
+
+        String s = JOptionPane.showInputDialog(this, "Interest Rate % (>=0):", ((CustomerDepositAccount) a).getInterestRate());
+        if (s == null) return;
+
+        try {
+            double ir = Double.parseDouble(s);
+            ((CustomerDepositAccount) a).setInterestRate(ir);
+            JOptionPane.showMessageDialog(this, "Interest rate updated.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Deposit
+    private void doDeposit() {
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        BankAccount a = model.findByAccountNumber(accNo.trim());
+        if (a == null) {
+            JOptionPane.showMessageDialog(this, "Account not found.");
+            return;
+        }
+
+        String s = JOptionPane.showInputDialog(this, "Amount to deposit:");
+        if (s == null) return;
+
+        try {
+            double amt = Double.parseDouble(s);
+            a.deposit(amt);
+            JOptionPane.showMessageDialog(this, "New balance: " + a.getBalance());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Withdraw
+    private void doWithdraw() {
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        BankAccount a = model.findByAccountNumber(accNo.trim());
+        if (a == null) {
+            JOptionPane.showMessageDialog(this, "Account not found.");
+            return;
+        }
+
+        String s = JOptionPane.showInputDialog(this, "Amount to withdraw:");
+        if (s == null) return;
+
+        try {
+            double amt = Double.parseDouble(s);
+            a.withdraw(amt);
+            JOptionPane.showMessageDialog(this, "New balance: " + a.getBalance());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Calculate Interest
+    private void doCalculateInterest() {
+        int count = 0;
+        for (BankAccount a : model.getAll()) {
+            if (a instanceof CustomerDepositAccount) {
+                ((CustomerDepositAccount) a).applyInterestOnce();
+                count++;
+            }
+        }
+        JOptionPane.showMessageDialog(this, "Interest applied to " + count + " deposit accounts.");
+    }
+
+    // Find by Account Number
+    private void doFindByAccountNumber() {
+        String accNo = JOptionPane.showInputDialog(this, "AccountNumber (8 digits):");
+        if (accNo == null) return;
+
+        BankAccount a = model.findByAccountNumber(accNo.trim());
+        JOptionPane.showMessageDialog(this, (a == null) ? "Not found." :
+                ("Found: " + a.getAccountId() + " " + a.getSurname() + ", " + a.getFirstName() +
+                        " (" + a.getAccountType().displayName() + ") Balance=" + a.getBalance()));
+    }
+
+    // Find by Surename
+    private void doFindBySurname() {
+        String s = JOptionPane.showInputDialog(this, "Surname starts with:");
+        if (s == null) return;
+
+        List<BankAccount> results = model.findBySurname(s);
+        if (results.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No matches.");
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (BankAccount a : results) {
+            sb.append(a.getAccountNumber()).append(" - ")
+              .append(a.getSurname()).append(", ").append(a.getFirstName())
+              .append(" - ").append(a.getAccountType().displayName())
+              .append(" - ").append(a.getBalance()).append("\n");
+        }
+
+        JTextArea area = new JTextArea(sb.toString(), 15, 45);
+        area.setEditable(false);
+        JOptionPane.showMessageDialog(this, new JScrollPane(area), "Matches", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    // Show Accounts
+    private void showListAllTable() {
+        JFrame win = new JFrame("List All Accounts");
+        win.setSize(900, 400);
+        win.setLocationRelativeTo(this);
+
+        AccountsTable tm = new AccountsTable(model.getAll());
+        JTable table = new JTable(tm);
+
+        TableRowSorter<AccountsTable> sorter = new TableRowSorter<>(tm);
+        table.setRowSorter(sorter);
+
+        win.add(new JScrollPane(table), BorderLayout.CENTER);
+        win.setVisible(true);
+    }
+
+    //Open
+    private void doOpen() {
+        JFileChooser chooser = new JFileChooser();
+        int res = chooser.showOpenDialog(this);
+        if (res != JFileChooser.APPROVE_OPTION) return;
+
+        currentFile = chooser.getSelectedFile();
+        try {
+            List<BankAccount> loaded = store.load(currentFile.getAbsolutePath());
+            model.replaceAll(loaded);
+            JOptionPane.showMessageDialog(this, "Loaded " + loaded.size() + " records.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Open Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    //Save
+    private void doSave(boolean forceChoose) {
+        if (forceChoose || currentFile == null) {
+            JFileChooser chooser = new JFileChooser();
+            int res = chooser.showSaveDialog(this);
+            if (res != JFileChooser.APPROVE_OPTION) return;
+            currentFile = chooser.getSelectedFile();
+        }
+
+        try {
+            store.save(currentFile.getAbsolutePath(), model.getAll());
+            JOptionPane.showMessageDialog(this, "Saved.");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Save Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Exit
+    private void exitApp() {
+        int reply = JOptionPane.showConfirmDialog(this,
+                "Do you want to save before exiting?",
+                "Exit", JOptionPane.YES_NO_CANCEL_OPTION);
+
+        if (reply == JOptionPane.CANCEL_OPTION) return;
+
+        if (reply == JOptionPane.YES_OPTION) {
+            doSave(false);
+        }
+
+        dispose();
+        System.exit(0);
+    }
+}
